@@ -1,48 +1,85 @@
+import os
 import streamlit as st
+
 from leitor_pdf import extrair_dados
 from regra_negocio import calcular_litros
 
-import os
-import tempfile
 
-
-# ==================================================
-# CONFIGURAÇÃO
-# ==================================================
+# ============================================================
+# CONFIGURAÇÃO DA PÁGINA
+# ============================================================
 
 st.set_page_config(
-    page_title="Calculadora de Litros",
+    page_title="CALCULE SUA LITRAGEM - ANALISTA SÁVIO",
     page_icon="📊",
-    layout="centered"
+    layout="wide"
 )
 
 
-# ==================================================
-# TÍTULO
-# ==================================================
+# ============================================================
+# CAMINHOS DOS ARQUIVOS
+# ============================================================
 
-st.title("📊 Calculadora de Litros")
-
-st.write(
-    "Envie o pedido ou orçamento em PDF "
-    "para calcular automaticamente o total "
-    "de litros vendidos."
+PASTA_PROJETO = os.path.dirname(
+    os.path.abspath(__file__)
 )
-
-
-# ==================================================
-# LOCALIZA O EXCEL
-# ==================================================
 
 CAMINHO_EXCEL = os.path.join(
-    os.path.dirname(__file__),
+    PASTA_PROJETO,
     "produtos.xlsx"
 )
 
+CAMINHO_LOGO = os.path.join(
+    PASTA_PROJETO,
+    "logo_suvinil.png"
+)
 
-# ==================================================
-# VERIFICA SE O EXCEL EXISTE
-# ==================================================
+
+# ============================================================
+# CABEÇALHO
+# ============================================================
+
+col_logo, col_titulo = st.columns(
+    [1, 5]
+)
+
+with col_logo:
+
+    if os.path.exists(CAMINHO_LOGO):
+
+        st.image(
+            CAMINHO_LOGO,
+            width=140
+        )
+
+    else:
+
+        st.markdown(
+            "# 🎨"
+        )
+
+
+with col_titulo:
+
+    st.title(
+        "CALCULE SUA LITRAGEM"
+    )
+
+    st.markdown(
+        "### Analista Sávio"
+    )
+
+    st.caption(
+        "Cálculo automático de litragem a partir de pedidos e orçamentos em PDF."
+    )
+
+
+st.divider()
+
+
+# ============================================================
+# VERIFICAÇÃO DO EXCEL
+# ============================================================
 
 if not os.path.exists(CAMINHO_EXCEL):
 
@@ -50,139 +87,172 @@ if not os.path.exists(CAMINHO_EXCEL):
         "O arquivo produtos.xlsx não foi encontrado."
     )
 
+    st.info(
+        f"Verifique se o arquivo está nesta pasta: {PASTA_PROJETO}"
+    )
+
     st.stop()
 
 
-# ==================================================
-# UPLOAD DO PDF
-# ==================================================
+# ============================================================
+# ENVIO DO PDF
+# ============================================================
+
+st.subheader(
+    "📄 Envie o pedido ou orçamento"
+)
 
 arquivo_pdf = st.file_uploader(
-    "📄 Selecione o pedido/orçamento em PDF",
+    "Selecione um arquivo PDF",
     type=["pdf"]
 )
 
 
-# ==================================================
+# ============================================================
 # PROCESSAMENTO
-# ==================================================
+# ============================================================
 
 if arquivo_pdf is not None:
 
     st.success(
-        f"Arquivo carregado: {arquivo_pdf.name}"
+        f"Arquivo selecionado: {arquivo_pdf.name}"
     )
 
+    st.divider()
+
     if st.button(
-        "🔎 CALCULAR LITROS",
+        "CALCULAR LITRAGEM",
+        type="primary",
         use_container_width=True
     ):
 
-        caminho_pdf = None
+        caminho_pdf_temp = os.path.join(
+            PASTA_PROJETO,
+            "_pedido_temp.pdf"
+        )
 
         try:
 
-            # ==========================================
+            # ==================================================
             # SALVA O PDF TEMPORARIAMENTE
-            # ==========================================
+            # ==================================================
 
-            with tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=".pdf"
-            ) as arquivo_temp:
+            with open(
+                caminho_pdf_temp,
+                "wb"
+            ) as arquivo:
 
-                arquivo_temp.write(
+                arquivo.write(
                     arquivo_pdf.getbuffer()
                 )
 
-                caminho_pdf = arquivo_temp.name
 
-
-            # ==========================================
-            # LÊ O PDF
-            # ==========================================
+            # ==================================================
+            # LEITURA DO PDF
+            # ==================================================
 
             with st.spinner(
                 "Lendo o pedido..."
             ):
 
                 dados_pdf = extrair_dados(
-                    caminho_pdf
+                    caminho_pdf_temp
                 )
 
 
-            # ==========================================
+            # ==================================================
             # VERIFICA SE ENCONTROU PRODUTOS
-            # ==========================================
+            # ==================================================
 
             if not dados_pdf:
 
-                st.error(
-                    "Nenhum produto foi identificado "
-                    "no PDF."
+                st.warning(
+                    "Nenhum produto foi identificado no PDF."
+                )
+
+                st.info(
+                    "Verifique se o PDF possui os códigos, preços e quantidades esperados."
                 )
 
                 st.stop()
 
 
-            # ==========================================
-            # CALCULA OS LITROS
-            # ==========================================
+            # ==================================================
+            # CALCULA A LITRAGEM
+            # ==================================================
 
             with st.spinner(
-                "Calculando litros..."
+                "Calculando a litragem..."
             ):
 
-                total_litros, detalhes = (
-                    calcular_litros(
-                        dados_pdf,
-                        CAMINHO_EXCEL
-                    )
+                total_litros, detalhes = calcular_litros(
+                    dados_pdf,
+                    CAMINHO_EXCEL
                 )
 
 
-            # ==========================================
-            # RESULTADO
-            # ==========================================
+            # ==================================================
+            # RESULTADO PRINCIPAL
+            # ==================================================
+
+            st.success(
+                "Cálculo realizado com sucesso!"
+            )
 
             st.divider()
 
             st.subheader(
-                "Resultado do Pedido"
+                "📊 Resultado"
             )
 
 
-            # ==========================================
+            # ==================================================
             # CARDS
-            # ==========================================
+            # ==================================================
 
-            col1, col2 = st.columns(2)
-
+            col1, col2, col3 = st.columns(
+                3
+            )
 
             with col1:
 
                 st.metric(
-                    "Produtos encontrados",
-                    len(dados_pdf)
+                    "TOTAL DE LITROS",
+                    f"{total_litros:,.2f} L"
                 )
 
 
             with col2:
 
                 st.metric(
-                    "Total de Litros",
-                    f"{total_litros:,.2f} L"
+                    "PRODUTOS IDENTIFICADOS",
+                    len(dados_pdf)
                 )
 
 
-            # ==========================================
-            # DETALHAMENTO
-            # ==========================================
+            with col3:
+
+                produtos_ok = len(
+                    detalhes[
+                        detalhes["Status"] == "OK"
+                    ]
+                )
+
+                st.metric(
+                    "PRODUTOS CALCULADOS",
+                    produtos_ok
+                )
+
 
             st.divider()
 
+
+            # ==================================================
+            # DETALHAMENTO
+            # ==================================================
+
             st.subheader(
-                "Detalhamento"
+                "🔎 Detalhamento dos produtos"
             )
 
             st.dataframe(
@@ -192,22 +262,44 @@ if arquivo_pdf is not None:
             )
 
 
-            # ==========================================
+            # ==================================================
             # PRODUTOS NÃO ENCONTRADOS
-            # ==========================================
+            # ==================================================
 
-            nao_encontrados = detalhes[
+            produtos_nao_encontrados = detalhes[
                 detalhes["Status"] != "OK"
             ]
 
 
-            if not nao_encontrados.empty:
+            if not produtos_nao_encontrados.empty:
 
                 st.warning(
-                    f"{len(nao_encontrados)} "
-                    "produto(s) não foram encontrados "
-                    "na listagem de produtos."
+                    f"{len(produtos_nao_encontrados)} produto(s) precisam de verificação."
                 )
+
+
+            # ==================================================
+            # DOWNLOAD DO RESULTADO
+            # ==================================================
+
+            st.divider()
+
+            st.subheader(
+                "⬇️ Exportar resultado"
+            )
+
+            csv = detalhes.to_csv(
+                index=False,
+                encoding="utf-8-sig"
+            )
+
+            st.download_button(
+                label="BAIXAR RESULTADO EM CSV",
+                data=csv,
+                file_name="resultado_litragem.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
 
 
         except Exception as erro:
@@ -216,23 +308,49 @@ if arquivo_pdf is not None:
                 "Ocorreu um erro durante o processamento."
             )
 
-            st.exception(erro)
+            st.exception(
+                erro
+            )
 
 
         finally:
 
-            # ==========================================
-            # APAGA O PDF TEMPORÁRIO
-            # ==========================================
+            # ==================================================
+            # REMOVE PDF TEMPORÁRIO
+            # ==================================================
 
-            if caminho_pdf:
+            if os.path.exists(
+                caminho_pdf_temp
+            ):
 
                 try:
 
                     os.remove(
-                        caminho_pdf
+                        caminho_pdf_temp
                     )
 
-                except:
+                except Exception:
 
                     pass
+
+
+# ============================================================
+# MENSAGEM INICIAL
+# ============================================================
+
+else:
+
+    st.info(
+        "Selecione um pedido ou orçamento em PDF para começar."
+    )
+
+
+# ============================================================
+# RODAPÉ
+# ============================================================
+
+st.divider()
+
+st.caption(
+    "CALCULE SUA LITRAGEM • Analista Sávio"
+)
